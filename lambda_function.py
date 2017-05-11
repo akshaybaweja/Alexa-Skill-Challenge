@@ -9,8 +9,8 @@ def build_speechlet_response(title, output, reprompt_text, should_end_session):
         },
         'card': {
             'type': 'Simple',
-            'title': "SessionSpeechlet - " + title,
-            'content': "SessionSpeechlet - " + output
+            'title': title,
+            'content': output
         },
         'reprompt': {
             'outputSpeech': {
@@ -31,10 +31,12 @@ def build_response(session_attributes, speechlet_response):
 # --------------- Functions that control the skill's behavior ------------------
 
 def get_welcome_response():
-    card_title = "Welcome to Elements"
+    card_title = "Welcome to Element Trivia"
     session_attributes = {}
     should_end_session = False
-    speech_output = "Welcome to Elements"
+    speech_output = "Welcome to Element Trivia. You can ask me about various properties of elements such "\
+        "as atomic mass, atomic radius, electronic configuration, etc, "\
+        "Just say get property-name of element-name."
     reprompt_text=speech_output
     return build_response(session_attributes, build_speechlet_response(
         card_title, speech_output, reprompt_text, should_end_session))
@@ -44,11 +46,26 @@ def get_element_details(givenElement):
         elements = json.load(data)
         for element in elements:
             name = element["name"]
-            #print("UPR WALA NAAM: "+name)
             if name.lower() == givenElement.lower():
                 return element
-            else:
-                return None
+
+def get_name_from_symbol(symbol):
+    with open('data.json') as data:
+        elements = json.load(data)
+        for element in elements:
+            sym = element["symbol"]
+            if sym.lower() == symbol.lower():
+                return element["name"]
+
+def process_electronic_config(electronic_config):
+    if '[' in electronic_config:
+        text = electronic_config.split(']')
+        symbol = text[0].split('[')
+        symbol = "".join(symbol)
+        name = get_name_from_symbol(symbol)
+        return name+text[1]
+    else:
+        return electronic_config
 
 def get_element_property(element, property):
     if property == "year":
@@ -56,11 +73,11 @@ def get_element_property(element, property):
     elif property == "group":
         return element["groupBlock"]
     elif property == "density":
-        return element["density"]
+        return str(element["density"])+"gram per centimeter cube"
     elif property == "boiling point":
-        return element["boilingPoint"]
+        return str(element["boilingPoint"])+" degree celcius per molal"
     elif property == "melting point":
-        return element["meltingPoint"]
+        return str(element["meltingPoint"])+" degree celcius per molal"
     elif property == "bonding type":
         return element["bondingType"]
     elif property == "standard state":
@@ -70,19 +87,19 @@ def get_element_property(element, property):
     elif property == "electron affinity":
         return element["electronAffinity"]
     elif property == "ionization energy":
-        return element["ionizationEnergy"]
+        return str(element["ionizationEnergy"])+" electron volt"
     elif property == "van der waals radius":
-        return element["vanDelWaalsRadius"]
+        return str(element["vanDelWaalsRadius"])+" pico meter"
     elif property == "ion radius":
-        return element["ionRadius"]
+        return str(element["ionRadius"])+" pico meter"
     elif property == "atomic radius":
-        return element["atomicRadius"]
+        return str(element["atomicRadius"])+" pico meter"
     elif property == "electronegativity":
         return element["electronegativity"]
     elif property == "electronic configuration":
-        return element["electronicConfiguration"]
+        return process_electronic_config(element["electronicConfiguration"])
     elif property == "atomic mass":
-        return element["atomicMass"]
+        return str(element["atomicMass"])+" gram per mole"
     elif property == "name":
         return element["name"]
     elif property == "symbol":
@@ -93,24 +110,28 @@ def get_element_property(element, property):
         return None
 
 def get_property(intent, session):
-    card_title = intent['name']
+    card_title = "Element Property"
     session_attributes = {}
     should_end_session = True
     speech_output=""
     if "element_name" in intent['slots']:
-        givenElement = intent['slots']['element_name']['value']
-        print("ELEMENT : "+givenElement)
-        data = get_element_details(givenElement)
-        if data != None:
-            if "Property" in intent['slots']:
-                property_value = intent['slots']['Property']['value']
-                print("PROPERTY : "+property_value)
-                data_property = get_element_property(data,property_value.lower())
-                speech_output = "The "+property_value+" of "+givenElement+" is "+str(data_property)
-            else:
-                speech_output = "No property found"
+        givenElement = intent['slots']['element_name']
+        if(givenElement.has_key('value')):
+            givenElement = givenElement['value']
+            data = get_element_details(givenElement)
+            if data != None:
+                if "Property" in intent['slots']:
+                    property_value = intent['slots']['Property']['value']
+                    data_property = get_element_property(data,property_value.lower())
+                    speech_output = "The "+property_value+" of "+givenElement+" is "+str(data_property)
+                    card_title = "Element Trivia - Property"
+                else:
+                    speech_output = "No property found"
+           else:
+               speech_output = "Element data not found"
         else:
-            speech_output = "Element data not found"
+            speech_output = "Please specify an element name and try again, "\
+                "Say help for more info."
     else:
         speech_output = "No Element Name Found"
 
@@ -119,11 +140,20 @@ def get_property(intent, session):
         card_title, speech_output, reprompt_text, should_end_session))
 
 def handle_session_end_request():
-    card_title = "Session Ended"
-    speech_output = "Thank you for using Elemento."
+    card_title = "Thank you for using Element Trivia"
+    speech_output = "Thank you for using Element Trivia."
     should_end_session = True
     return build_response({}, build_speechlet_response(
         card_title, speech_output, None, should_end_session))
+
+def get_help():
+    card_title = "Help"
+    speech_output = "You can ask me about various properties of elements such "\
+        "as atomic mass, atomic radius, electronic configuration, symbol, etc, "\
+        "Just say get property-name of element-name."
+    should_end_session = False
+    return build_response({}, build_speechlet_response(
+        card_title, speech_output, speech_output, should_end_session))
 
 # --------------- Events ------------------
 
@@ -157,10 +187,8 @@ def on_intent(intent_request, session):
     # Dispatch to your skill's intent handlers
     if intent_name == "GetInfo":
         return get_property(intent, session)
-    elif intent_name == "getAll":
-        return get_all(intent, session)
     elif intent_name == "AMAZON.HelpIntent":
-        return get_welcome_response(intent,session)
+        return get_help(intent,session)
     elif intent_name == "AMAZON.CancelIntent" or intent_name == "AMAZON.StopIntent":
         return handle_session_end_request()
     else:
