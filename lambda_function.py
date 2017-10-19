@@ -34,8 +34,8 @@ def get_welcome_response():
     card_title = "Welcome to Element Trivia"
     session_attributes = {}
     should_end_session = False
-    speech_output = "Welcome to Element Trivia. You can ask me about various properties of elements such "\
-        "as atomic mass, atomic radius, electronic configuration, etc, "\
+    speech_output = "Welcome to Element Trivia. You can ask me about various properties of elements such as"\
+        " atomic mass, atomic radius, electronic configuration, etc, "\
         "Just say get property-name of element-name."
     reprompt_text=speech_output
     return build_response(session_attributes, build_speechlet_response(
